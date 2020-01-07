@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test'
+Resources:
+   S3Bucket:
+      Type: AWS::S3::Bucket
+
+   S3BucketPolicyPrivate:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+         Bucket: !Ref S3Bucket
+         PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Principal: 
+               AWS: 
+               - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${MyFunctionLambdaExecutionRole}'
+              Action: 's3:PutObject*'
+              Effect: Allow
+              Resource: !Sub '${S3Bucket.Arn}/*'
+
+   MyFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+         Handler: index.handler
+         Runtime: python3.7
+         Timeout: 10
+         TracingConfig:
+            Mode: "Active"
+         Code:
+            ZipFile: !Sub |
+               import boto3
+
+               def handler(event, context):
+                  s3 = boto3.client('s3')
+
+                  return s3.put_object(
+                     Bucket="${S3Bucket}",
+                     Key="test",
+                     Body='Sample Text'
+                  )
+         Role: !GetAtt MyFunctionLambdaExecutionRole.Arn
+
+   MyFunctionLambdaExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+         AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Principal:
+                  Service:
+                  - lambda.amazonaws.com
+              Action:
+              - sts:AssumeRole
+         Path: "/"
+         ManagedPolicyArns:
+            - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+         Policies:
+         - PolicyName: root
+           PolicyDocument:
+               Version: '2012-10-17'
+               Statement:
+               - Effect: Allow
+                 Action:
+                 - logs:*
+                 Resource: arn:aws:logs:*:*:*
+               - Effect: Allow
+                 Action:
+                 - s3:PutObject
+                 Resource: !GetAtt S3Bucket.Arn
