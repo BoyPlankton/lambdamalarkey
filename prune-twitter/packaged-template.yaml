@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Test
+Resources:
+  MyFunction:
+    Properties:
+      Code:
+        S3Bucket: lambdamalarkey-infra
+        S3Key: a4d9bff961727009195b553d0faaedea
+      Environment:
+        Variables:
+          ACCESS_KEY: 15097009-b2qyoeJhj2c1X96YyozNE1JXAdApi8sYUcKszJmN5
+          ACCESS_SECRET: Fu8POmesE8tAelw1z0uTEPQ221U3Uqj7V7gZO9aiBByxF
+          BACKUP_BUCKET:
+            Ref: S3Bucket
+          CONSUMER_KEY: xpIHZhbieyFs2dXQLnVinBKTL
+          CONSUMER_SECRET: VhsGmHAc4hIjEUdMiho5idYCDtQxJlVJnrT8HXSG2Pp2JkkkKd
+          DAYS_TO_PRUNE: '365'
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+        - MyFunctionLambdaExecutionRole
+        - Arn
+      Runtime: python3.7
+      Timeout: 100
+      TracingConfig:
+        Mode: Active
+    Type: AWS::Lambda::Function
+  MyFunctionLambdaExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - logs:*
+            Effect: Allow
+            Resource: arn:aws:logs:*:*:*
+          - Action:
+            - s3:PutObject
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+              - S3Bucket
+              - Arn
+          Version: '2012-10-17'
+        PolicyName: root
+    Type: AWS::IAM::Role
+  S3Bucket:
+    Type: AWS::S3::Bucket
+  S3BucketPolicyPrivate:
+    Properties:
+      Bucket:
+        Ref: S3Bucket
+      PolicyDocument:
+        Statement:
+        - Action: s3:PutObject*
+          Effect: Allow
+          Principal:
+            AWS:
+            - Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/${MyFunctionLambdaExecutionRole}
+          Resource:
+            Fn::Sub: ${S3Bucket.Arn}/*
+        Version: '2012-10-17'
+    Type: AWS::S3::BucketPolicy

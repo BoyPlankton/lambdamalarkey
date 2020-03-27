@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test'
+Resources:
+   S3Bucket:
+      Type: AWS::S3::Bucket
+
+   S3BucketPolicyPrivate:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+         Bucket: !Ref S3Bucket
+         PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Principal: 
+               AWS: 
+               - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${MyFunctionLambdaExecutionRole}'
+              Action: 's3:PutObject*'
+              Effect: Allow
+              Resource: !Sub '${S3Bucket.Arn}/*'
+
+   MyFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+         Handler: index.handler
+         Runtime: python3.7
+         Timeout: 10
+         TracingConfig:
+            Mode: "Active"
+         Environment:
+            Variables:
+               DAYS_TO_PRUNE: "365"
+               BACKUP_BUCKET: !Ref S3Bucket
+               CONSUMER_KEY: "xpIHZhbieyFs2dXQLnVinBKTL"
+               CONSUMER_SECRET: "VhsGmHAc4hIjEUdMiho5idYCDtQxJlVJnrT8HXSG2Pp2JkkkKd"
+               ACCESS_KEY: "15097009-b2qyoeJhj2c1X96YyozNE1JXAdApi8sYUcKszJmN5"
+               ACCESS_SECRET: "Fu8POmesE8tAelw1z0uTEPQ221U3Uqj7V7gZO9aiBByxF"
+         Timeout: 100
+         Code: "lambda/"
+         Role: !GetAtt MyFunctionLambdaExecutionRole.Arn
+
+   MyFunctionLambdaExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+         AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Principal:
+                  Service:
+                  - lambda.amazonaws.com
+              Action:
+              - sts:AssumeRole
+         Path: "/"
+         ManagedPolicyArns:
+            - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+         Policies:
+         - PolicyName: root
+           PolicyDocument:
+               Version: '2012-10-17'
+               Statement:
+               - Effect: Allow
+                 Action:
+                 - logs:*
+                 Resource: arn:aws:logs:*:*:*
+               - Effect: Allow
+                 Action:
+                 - s3:PutObject
+                 Resource: !GetAtt S3Bucket.Arn
